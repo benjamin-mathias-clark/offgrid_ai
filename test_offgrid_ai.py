@@ -2,7 +2,7 @@ import sys
 import offgrid_ai
 
 from operator import itemgetter
-from offgrid_ai_pb2 import DataFile
+from offgrid_ai_pb2 import DataFile, NaturalGasType
 
 def verify_lcoe_values(input_file):
     """This computes the LCOE for El Paso, TX with 125MW gas generators and all
@@ -73,6 +73,31 @@ def get_pareto_frontier(input_file, location, natural_gas_capacity_mw):
         )
 
 
+def generator_and_turbine_lcoe(input_file):
+    """Compute and print the LCOE for 125MW gas generator & turbine systems with
+       no solar or batteries.
+    """
+    data_file = DataFile()
+    with open(input_file, "rb") as f:
+        data_file.ParseFromString(f.read())
+
+    for system_data in data_file.system_data:
+        if (
+            system_data.spec.location == "El Paso, TX"
+            and round(system_data.spec.solar_capacity_mw) == 0
+            and round(system_data.spec.bess_max_power_mw) == 0
+            and round(system_data.spec.natural_gas_capacity_mw) == 125
+        ):
+            generator_lcoe = offgrid_ai.breakeven_lcoe(
+                system_data, offgrid_ai.build_standard_financial_inputs()
+            )
+            system_data.spec.nat_gas_type = NaturalGasType.GAS_TURBINE
+            turbine_lcoe = offgrid_ai.breakeven_lcoe(
+                system_data, offgrid_ai.build_standard_financial_inputs()
+            )
+            print(f"Generator LCOE:{generator_lcoe} Turbine LCOE:{turbine_lcoe}")
+
+
 def main():
     """Demonstration of code to calculate the LCOE & Pareto frontier."""
     if len(sys.argv) != 2:
@@ -88,6 +113,8 @@ def main():
     print("Amarillo, TX Pareto frontier")
     get_pareto_frontier(input_file, "Amarillo, TX", 125)
 
+    print("Generator & Turbine LCOEs:")
+    generator_and_turbine_lcoe(input_file)
 
 if __name__ == "__main__":
     main()
