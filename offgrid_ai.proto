@@ -58,6 +58,9 @@ message FinancialInputs {
 
   optional CapexInputs capex_inputs = 17;
   optional OpexInputs opex_inputs = 18;
+
+  // Heat rate (btu/kWh) ratio between gas turbines and gas generator
+  optional double turbine_vs_generator_fuel_consumption_ratio = 19;
 }
 
 message CapexInputs {

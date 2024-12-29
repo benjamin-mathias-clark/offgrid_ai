@@ -25,6 +25,8 @@ def ebitda_npv(
             * financial_inputs.fuel_price_mmbtu
             * (1 + financial_inputs.fuel_escalator) ** (production.year - 1)
         )
+        if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE:
+            fuel_cost *= financial_inputs.turbine_vs_generator_fuel_consumption_ratio
         solar_fixed_om = (
             -financial_inputs.opex_inputs.solar_fixed_om_kw
             * system_data.spec.solar_capacity_mw
@@ -86,7 +88,6 @@ def ebitda_npv(
             + battery_fixed_om
             + generator_fixed_om
             + generator_variable_om
-            + gas_turbine_fixed_om
             + gas_turbine_fixed_om
             + gas_turbines_variable_om
             + bos_fixed_om
@@ -464,6 +465,7 @@ def build_standard_financial_inputs() -> FinancialInputs:
     financial_inputs.depreciation_yr4 = 0.115
     financial_inputs.depreciation_yr5 = 0.115
     financial_inputs.depreciation_yr6 = 0.058
+    financial_inputs.turbine_vs_generator_fuel_consumption_ratio = 9630./8989.
 
     financial_inputs.capex_inputs.solar_capex.modules = 0.22
     financial_inputs.capex_inputs.solar_capex.inverters = 0.05
