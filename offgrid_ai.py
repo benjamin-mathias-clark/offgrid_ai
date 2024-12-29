@@ -465,7 +465,7 @@ def build_standard_financial_inputs() -> FinancialInputs:
     financial_inputs.depreciation_yr4 = 0.115
     financial_inputs.depreciation_yr5 = 0.115
     financial_inputs.depreciation_yr6 = 0.058
-    financial_inputs.turbine_vs_generator_fuel_consumption_ratio = 9630./8989.
+    financial_inputs.turbine_vs_generator_fuel_consumption_ratio = 9630.0/8989.3
 
     financial_inputs.capex_inputs.solar_capex.modules = 0.22
     financial_inputs.capex_inputs.solar_capex.inverters = 0.05
