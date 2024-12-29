@@ -1,0 +1,151 @@
+syntax = "proto2";
+
+package offgrid_ai;
+
+message DataFile {
+  repeated SystemData system_data = 1;
+}
+
+message SystemData {
+  optional SystemSpec spec = 1;
+  repeated SystemProduction production = 2;
+}
+
+enum NaturalGasType {
+  GENERATOR = 1;
+  GAS_TURBINE = 2;
+}
+
+message SystemSpec {
+  optional string location = 1;
+  optional double load_mw = 2;
+  optional double solar_capacity_mw = 3;
+  optional double bess_max_power_mw = 4;
+  optional double bess_energy_capacity_mwh = 5;
+  optional double natural_gas_capacity_mw = 6;
+  optional NaturalGasType nat_gas_type = 7;
+}
+
+message SystemProduction {
+  optional int32 year = 1;
+  optional double solar_output_raw_mwh = 2;
+  optional double solar_output_net_mwh = 3;
+  optional double bess_throughput_mwh = 4;
+  optional double bess_net_output_mwh = 5;
+  optional double generator_output_mwh = 6;
+  optional double generator_fuel_mmbtu = 7;
+  optional double load_served_mwh = 8;
+}
+
+message FinancialInputs {
+  optional double cost_of_equity = 1;
+  optional double cost_of_debt = 2;
+  optional double leverage = 3;
+  optional int32 debt_term = 4;
+  optional double investment_tax_credit = 5;
+
+  optional int32 construction_time = 6;
+  optional double combined_tax_rate = 7;
+  optional double om_escalator = 8;
+  optional double fuel_price_mmbtu = 9;
+  optional double fuel_escalator = 10;
+  optional double depreciation_yr1 = 11;
+  optional double depreciation_yr2 = 12;
+  optional double depreciation_yr3 = 13;
+  optional double depreciation_yr4 = 14;
+  optional double depreciation_yr5 = 15;
+  optional double depreciation_yr6 = 16;
+
+  optional CapexInputs capex_inputs = 17;
+  optional OpexInputs opex_inputs = 18;
+}
+
+message CapexInputs {
+  // Solar PV ($/watt)
+  message SolarCapexInputs {
+    optional double modules = 1;
+    optional double inverters = 2;
+    optional double racking_and_foundations = 3;
+    optional double balance_of_system = 4;
+    optional double labor = 5;
+
+    optional double modules_itc_applicability = 6;
+    optional double inverters_itc_applicability = 7;
+    optional double racking_and_foundations_itc_applicability = 8;
+    optional double balance_of_system_itc_applicability = 9;
+    optional double labor_itc_applicability = 10;
+  }
+  optional SolarCapexInputs solar_capex = 1;
+
+  // Battery Energy Storage System ($/kWh)
+  message BessCapexInputs {
+    optional double bess_units = 1;
+    optional double balance_of_system = 2;
+    optional double labor = 3;
+
+    optional double bess_units_itc_applicability = 4;
+    optional double balance_of_system_itc_applicability = 5;
+    optional double labor_itc_applicability = 6;
+  }
+  optional BessCapexInputs bess_capex = 2;
+
+  // Generators ($/kW)
+  message GeneratorCapexInputs {
+    optional double gensets = 1;
+    optional double balance_of_system = 2;
+    optional double labor = 3;
+
+    optional double gensets_itc_applicability = 4;
+    optional double balance_of_system_itc_applicability = 5;
+    optional double labor_itc_applicability = 6;
+  }
+  optional GeneratorCapexInputs generator_capex = 3;
+
+  // Gas Turbines ($/kW)
+  message GasTurbineCapexInputs {
+    optional double gas_turbines = 1;
+    optional double balance_of_system = 2;
+    optional double labor = 3;
+
+    optional double gas_turbines_itc_applicability = 4;
+    optional double balance_of_system_itc_applicability = 5;
+    optional double labor_itc_applicability = 6;
+  }
+  optional GasTurbineCapexInputs gas_turbine_capex = 4;
+
+  // System Integration ($/kW)
+  message SystemIntegrationCapexInputs {
+    optional double microgrid_switchgear_transformers_etc = 1;
+    optional double controls = 2;
+    optional double labor = 3;
+
+    optional double microgrid_switchgear_transformers_etc_itc_applicability = 4;
+    optional double controls_itc_applicability = 5;
+    optional double labor_itc_applicability = 6;
+  }
+  optional SystemIntegrationCapexInputs system_integration_capex = 5;
+
+  // Soft Costs (%)
+  message SoftCostCapexInputs {
+    optional double general_conditions = 1;
+    optional double epc_overhead = 2;
+    optional double design_engineering_and_surveys = 3;
+    optional double permitting_and_inspection = 4;
+    optional double startup_and_commissioning = 5;
+    optional double insurance = 6;
+    optional double taxes = 7;
+  }
+  optional SoftCostCapexInputs soft_cost_capex = 6;
+
+}
+
+message OpexInputs {
+  optional double solar_fixed_om_kw = 1;
+  optional double bess_fixed_om_kw = 2;
+  optional double generators_fixed_om_kw = 3;
+  optional double generators_variable_om_kwh = 4;
+  optional double gas_turbines_fixed_om_kw = 5;
+  optional double gas_turbines_variable_om_kwh = 6;
+  optional double bos_fixed_om_kw = 7;
+  optional double soft_costs = 8;
+}
