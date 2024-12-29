@@ -79,7 +79,7 @@ def ebitda_npv(
         )
         soft_costs_om = (
             -financial_inputs.opex_inputs.soft_costs
-            * hard_capex(system_data, financial_inputs)
+            * (hard_capex(system_data, financial_inputs) - gas_turbine_capex_spend(system_data, financial_inputs))
             * (1 + financial_inputs.om_escalator) ** (production.year - 1)
         )
         total_operating_costs = (
@@ -115,7 +115,7 @@ def total_capex(system_data: SystemData, financial_inputs: FinancialInputs) -> f
         + soft_cost_capex.insurance
         + soft_cost_capex.taxes
     )
-    return hard_capex_spend * (1 + soft_cost_percentage)
+    return hard_capex_spend * (1 + soft_cost_percentage) - gas_turbine_capex_spend(system_data, financial_inputs) * soft_cost_percentage
 
 
 def hard_capex(system_data: SystemData, financial_inputs: FinancialInputs) -> float:
@@ -123,7 +123,6 @@ def hard_capex(system_data: SystemData, financial_inputs: FinancialInputs) -> fl
     solar_capex = financial_inputs.capex_inputs.solar_capex
     bess_capex = financial_inputs.capex_inputs.bess_capex
     generator_capex = financial_inputs.capex_inputs.generator_capex
-    gas_turbine_capex = financial_inputs.capex_inputs.gas_turbine_capex
     system_integration_capex = financial_inputs.capex_inputs.system_integration_capex
 
     solar_capex_spend = (
@@ -153,17 +152,6 @@ def hard_capex(system_data: SystemData, financial_inputs: FinancialInputs) -> fl
         if system_data.spec.nat_gas_type == NaturalGasType.GENERATOR
         else 0
     )
-    gas_turbine_capex_spend = (
-        (
-            gas_turbine_capex.gas_turbines
-            + gas_turbine_capex.balance_of_system
-            + gas_turbine_capex.labor
-        )
-        * 1000
-        * system_data.spec.natural_gas_capacity_mw
-        if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE
-        else 0
-    )
     system_integration_capex_spend = (
         (
             system_integration_capex.microgrid_switchgear_transformers_etc
@@ -177,9 +165,26 @@ def hard_capex(system_data: SystemData, financial_inputs: FinancialInputs) -> fl
         solar_capex_spend
         + bess_capex_spend
         + generators_capex_spend
-        + gas_turbine_capex_spend
+        + gas_turbine_capex_spend(system_data, financial_inputs)
         + system_integration_capex_spend
     )
+
+def gas_turbine_capex_spend(system_data: SystemData, financial_inputs: FinancialInputs) -> float:
+    """Compute the gas turbine capital expenditures."""
+    gas_turbine_capex = financial_inputs.capex_inputs.gas_turbine_capex
+
+    gas_turbine_capex_spend = (
+        (
+            gas_turbine_capex.gas_turbines
+            + gas_turbine_capex.balance_of_system
+            + gas_turbine_capex.labor
+        )
+        * 1000
+        * system_data.spec.natural_gas_capacity_mw
+        if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE
+        else 0
+    )
+    return gas_turbine_capex_spend
 
 
 def federal_itc_applicable_spend(
