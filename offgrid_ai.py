@@ -1,3 +1,4 @@
+from operator import itemgetter
 from offgrid_ai_pb2 import SystemData, FinancialInputs, NaturalGasType
 
 
@@ -17,9 +18,25 @@ def ebitda_npv(
     system_data: SystemData, financial_inputs: FinancialInputs, lcoe: float
 ) -> float:
     """Computes the NPV of the EBITDA over the project lifetime."""
-    operating_year_ebitdas = []
+    operating_year_revenues = []
     for production in system_data.production:
-        revenue = lcoe * production.load_served_mwh
+        revenue = (
+            lcoe
+            * production.load_served_mwh
+            * (1 + financial_inputs.lcoe_escalator) ** (production.year - 1)
+        )
+        operating_year_revenues.append((production.year, revenue))
+    return calc_npv(
+        operating_year_revenues,
+        financial_inputs.cost_of_equity,
+        financial_inputs.construction_time,
+    ) + fuel_cost_npv(system_data, financial_inputs) + fixed_om_npv(system_data, financial_inputs) + variable_om_npv(system_data, financial_inputs)
+
+
+def fuel_cost_npv(system_data: SystemData, financial_inputs: FinancialInputs) -> float:
+    """Computes the NPV of the fuel cost over the project lifetime."""
+    operating_year_fuel_cost = []
+    for production in system_data.production:
         fuel_cost = (
             -production.generator_fuel_mmbtu
             * financial_inputs.fuel_price_mmbtu
@@ -27,6 +44,18 @@ def ebitda_npv(
         )
         if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE:
             fuel_cost *= financial_inputs.turbine_vs_generator_fuel_consumption_ratio
+        operating_year_fuel_cost.append((production.year, fuel_cost))
+    return calc_npv(
+        operating_year_fuel_cost,
+        financial_inputs.cost_of_equity,
+        financial_inputs.construction_time,
+    )
+
+
+def fixed_om_npv(system_data: SystemData, financial_inputs: FinancialInputs) -> float:
+    """Computes the NPV of the fixed O&M expenses over the project lifetime."""
+    operating_year_fixed_om = []
+    for production in system_data.production:
         solar_fixed_om = (
             -financial_inputs.opex_inputs.solar_fixed_om_kw
             * system_data.spec.solar_capacity_mw
@@ -47,25 +76,9 @@ def ebitda_npv(
             if system_data.spec.nat_gas_type == NaturalGasType.GENERATOR
             else 0
         )
-        generator_variable_om = (
-            -financial_inputs.opex_inputs.generators_variable_om_kwh
-            * production.generator_output_mwh
-            * 1000
-            * (1 + financial_inputs.om_escalator) ** (production.year - 1)
-            if system_data.spec.nat_gas_type == NaturalGasType.GENERATOR
-            else 0
-        )
         gas_turbine_fixed_om = (
             -financial_inputs.opex_inputs.gas_turbines_fixed_om_kw
             * system_data.spec.natural_gas_capacity_mw
-            * 1000
-            * (1 + financial_inputs.om_escalator) ** (production.year - 1)
-            if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE
-            else 0
-        )
-        gas_turbines_variable_om = (
-            -financial_inputs.opex_inputs.gas_turbines_variable_om_kwh
-            * production.generator_output_mwh
             * 1000
             * (1 + financial_inputs.om_escalator) ** (production.year - 1)
             if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE
@@ -82,21 +95,48 @@ def ebitda_npv(
             * hard_capex(system_data, financial_inputs)
             * (1 + financial_inputs.om_escalator) ** (production.year - 1)
         )
-        total_operating_costs = (
-            fuel_cost
-            + solar_fixed_om
+        total_fixed_om_costs = (
+            solar_fixed_om
             + battery_fixed_om
             + generator_fixed_om
-            + generator_variable_om
             + gas_turbine_fixed_om
-            + gas_turbines_variable_om
             + bos_fixed_om
             + soft_costs_om
         )
-        ebitda = revenue + total_operating_costs
-        operating_year_ebitdas.append((production.year, ebitda))
+        operating_year_fixed_om.append((production.year, total_fixed_om_costs))
     return calc_npv(
-        operating_year_ebitdas,
+        operating_year_fixed_om,
+        financial_inputs.cost_of_equity,
+        financial_inputs.construction_time,
+    )
+
+
+def variable_om_npv(
+    system_data: SystemData, financial_inputs: FinancialInputs
+) -> float:
+    """Computes the NPV of the variable O&M expenses over the project lifetime."""
+    operating_year_variable_om = []
+    for production in system_data.production:
+        generator_variable_om = (
+            -financial_inputs.opex_inputs.generators_variable_om_kwh
+            * production.generator_output_mwh
+            * 1000
+            * (1 + financial_inputs.om_escalator) ** (production.year - 1)
+            if system_data.spec.nat_gas_type == NaturalGasType.GENERATOR
+            else 0
+        )
+        gas_turbines_variable_om = (
+            -financial_inputs.opex_inputs.gas_turbines_variable_om_kwh
+            * production.generator_output_mwh
+            * 1000
+            * (1 + financial_inputs.om_escalator) ** (production.year - 1)
+            if system_data.spec.nat_gas_type == NaturalGasType.GAS_TURBINE
+            else 0
+        )
+        total_variable_om_costs = generator_variable_om + gas_turbines_variable_om
+        operating_year_variable_om.append((production.year, total_variable_om_costs))
+    return calc_npv(
+        operating_year_variable_om,
         financial_inputs.cost_of_equity,
         financial_inputs.construction_time,
     )
@@ -405,7 +445,13 @@ def incremental_after_tax_equity_npv(
     """Compute the increase in after-tax equity NPV that results from a $1/MWh increase in the LCOE"""
     operating_year_production = []
     for production in system_data.production:
-        operating_year_production.append((production.year, production.load_served_mwh))
+        operating_year_production.append(
+            (
+                production.year,
+                production.load_served_mwh
+                * (1 + financial_inputs.lcoe_escalator) ** (production.year - 1),
+            )
+        )
     production_npv = calc_npv(
         operating_year_production,
         financial_inputs.cost_of_equity,
@@ -446,6 +492,37 @@ def calc_npv(time_series, discount_rate, year_offset):
     return npv
 
 
+def print_system_spec(system_data: SystemData):
+    """Print a short description of the system specification."""
+    nat_gas_type = (
+        "GEN" if system_data.spec.nat_gas_type == NaturalGasType.GENERATOR else "GT"
+    )
+    print(
+        f"{system_data.spec.location} {system_data.spec.solar_capacity_mw}MW solar | {system_data.spec.bess_max_power_mw}MW,{system_data.spec.bess_energy_capacity_mwh}MWh battery | {system_data.spec.natural_gas_capacity_mw}MW {nat_gas_type}"
+    )
+
+
+def find_pareto_frontier(system_data_with_lcoe):
+    """Given a list of candidate systems and their LCOE, compute the
+       Pareto frontier that trades off between the LCOE & lifetime
+       renewable percentage.
+    """
+    pareto_frontier = []
+
+    system_data_with_lcoe.sort(key=itemgetter(1))
+    for system_data, lcoe in system_data_with_lcoe:
+        if len(pareto_frontier) == 0:
+            pareto_frontier.append((system_data, lcoe))
+        else:
+            previous_lifetime_renewable = lifetime_renewable_percentage(
+                pareto_frontier[-1][0]
+            )
+            lifetime_renewable = lifetime_renewable_percentage(system_data)
+            if lifetime_renewable > previous_lifetime_renewable:
+                pareto_frontier.append((system_data, lcoe))
+    return pareto_frontier
+
+
 def build_standard_financial_inputs() -> FinancialInputs:
     """Constructs a FinancialInputs proto with baseline values."""
     financial_inputs = FinancialInputs()
@@ -465,7 +542,8 @@ def build_standard_financial_inputs() -> FinancialInputs:
     financial_inputs.depreciation_yr4 = 0.115
     financial_inputs.depreciation_yr5 = 0.115
     financial_inputs.depreciation_yr6 = 0.058
-    financial_inputs.turbine_vs_generator_fuel_consumption_ratio = 9630.0/8989.3
+    financial_inputs.turbine_vs_generator_fuel_consumption_ratio = 9630.0 / 8989.3
+    financial_inputs.lcoe_escalator = 0.0
 
     financial_inputs.capex_inputs.solar_capex.modules = 0.22
     financial_inputs.capex_inputs.solar_capex.inverters = 0.05

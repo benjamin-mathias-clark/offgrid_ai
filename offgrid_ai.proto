@@ -61,6 +61,8 @@ message FinancialInputs {
 
   // Heat rate (btu/kWh) ratio between gas turbines and gas generator
   optional double turbine_vs_generator_fuel_consumption_ratio = 19;
+
+  optional double lcoe_escalator = 20;
 }
 
 message CapexInputs {
